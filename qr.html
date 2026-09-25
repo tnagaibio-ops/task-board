@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>QRコード作成（職員用）</title>
+  <style>
+    :root { --ink: #18212d; --muted: #667085; --line: #d9dee6; --bg: #f2f4f7; --card: #fff; --brand: #1f3a5f; color-scheme: light; }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) { --ink: #e7ecf3; --muted: #98a3b3; --line: #2b3646; --bg: #0e131a; --card: #171f2a; color-scheme: dark; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--ink); font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Noto Sans JP", Meiryo, sans-serif; }
+    .wrap { max-width: 720px; margin: 0 auto; padding: 24px 16px; }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .lead { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
+    .form { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
+    label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+    input { font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
+    .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    button { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--brand); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    button.sub { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    .sheet { margin-top: 20px; background: #fff; color: #111; border-radius: 14px; padding: 32px 24px; text-align: center; border: 1px solid var(--line); }
+    .sheet h2 { font-size: 26px; margin: 0 0 4px; }
+    .sheet .s { font-size: 15px; margin: 0 0 20px; color: #444; }
+    #qr svg, #qr img { width: min(72vw, 320px); height: auto; }
+    .steps { text-align: left; max-width: 420px; margin: 20px auto 0; font-size: 15px; line-height: 1.8; padding-left: 1.4em; }
+    .url { font-size: 11px; color: #666; word-break: break-all; margin-top: 16px; }
+    .warn { font-size: 12px; color: #b45309; margin: 0; }
+    @media print {
+      body { background: #fff; }
+      .noprint { display: none !important; }
+      .wrap { padding: 0; }
+      .sheet { border: 0; margin: 0; padding-top: 40px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="noprint">
+      <h1>QRコード作成（職員用）</h1>
+      <p class="lead">アクセスコード入りの QR を作り、印刷して掲示・配布します。学生は読み取るだけでコード入力なしで開けます。</p>
+      <div class="form">
+        <label>ボードのURL
+          <input id="url" type="url">
+        </label>
+        <label>アクセスコード（スプレッドシート「設定」シートの値）
+          <input id="key" autocomplete="off">
+        </label>
+        <label>見出し（印刷用）
+          <input id="head" value="学生スタッフ 当日タスクボード">
+        </label>
+        <div class="row">
+          <button id="make" type="button">QRを作成</button>
+          <button id="print" class="sub" type="button">印刷</button>
+        </div>
+        <p class="warn">※ アクセスコードを変更したら、古い QR は使えなくなります。作り直してください。</p>
+      </div>
+    </div>
+
+    <section class="sheet" id="sheet" hidden>
+      <h2 id="h"></h2>
+      <p class="s">スマホのカメラで読み取ってください</p>
+      <div id="qr"></div>
+      <ol class="steps">
+        <li>QRを読み取って開く（ホーム画面に追加すると便利）</li>
+        <li>はじめに自分の名前を登録</li>
+        <li>作業を始めたら「対応中」、終わったら「完了」をタップ</li>
+        <li>できない・待ちのときは「保留」にして職員に声をかける</li>
+      </ol>
+      <div class="url" id="u"></div>
+    </section>
+  </div>
+
+  <script src="lib/qrcode.js"></script>
+  <script>
+    (function () {
+      const $ = (id) => document.getElementById(id);
+      $('url').value = location.href.replace(/qr\.html.*$/, '').replace(/[?#].*$/, '');
+      function make() {
+        const base = $('url').value.trim();
+        const key = $('key').value.trim();
+        if (!base) return;
+        const url = base + (key ? (base.indexOf('?') < 0 ? '?' : '&') + 'k=' + encodeURIComponent(key) : '');
+        const qr = qrcode(0, 'M');
+        qr.addData(url);
+        qr.make();
+        $('qr').innerHTML = qr.createSvgTag({ cellSize: 8, margin: 2, scalable: true });
+        $('h').textContent = $('head').value;
+        $('u').textContent = url;
+        $('sheet').hidden = false;
+      }
+      $('make').addEventListener('click', make);
+      $('print').addEventListener('click', () => { make(); window.print(); });
+    })();
+  </script>
+</body>
+</html>
