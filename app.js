@@ -1,15 +1,22 @@
-/* 学生スタッフ｜当日タスクボード — フロントエンド */
+/* 当日タスクボード — フロントエンド（複数ボード対応：?b=<ボードID>） */
 (function () {
   'use strict';
 
   const CONF = window.TASKBOARD_CONFIG || {};
   const QS = new URLSearchParams(location.search);
-  const DEMO = !CONF.GAS_URL || QS.get('demo') === '1';
+  // ボードの決定：?b=assist など。指定なしは DEFAULT_BOARD（旧形式の GAS_URL 単独設定にも対応）
+  const BOARDS = CONF.BOARDS || { default: { label: '', GAS_URL: CONF.GAS_URL || '' } };
+  const DEFAULT_BOARD = CONF.DEFAULT_BOARD && BOARDS[CONF.DEFAULT_BOARD] ? CONF.DEFAULT_BOARD : Object.keys(BOARDS)[0];
+  const BOARD_ID = (QS.get('b') || DEFAULT_BOARD).trim();
+  const BOARD = BOARDS[BOARD_ID];
+  const GAS_URL = BOARD ? String(BOARD.GAS_URL || '') : '';
+  const DEMO = !!BOARD && (!GAS_URL || QS.get('demo') === '1');
   const POLL_MS = Math.max(10, Number(CONF.POLL_SECONDS) || 20) * 1000;
   const STATUSES = ['未着手', '対応中', '完了', '保留'];
   const S_CLASS = { '未着手': 'todo', '対応中': 'doing', '完了': 'done', '保留': 'hold' };
   const PRI_ORDER = { '高': 0, '通常': 1, '低': 2 };
-  const LS = { name: 'tb.name', key: 'tb.key', filter: 'tb.filter' };
+  // 名前は全ボード共通、アクセスコードと絞り込みはボードごとに保存
+  const LS = { name: 'tb.name', key: 'tb.key.' + BOARD_ID, filter: 'tb.filter.' + BOARD_ID };
 
   const $ = (id) => document.getElementById(id);
   const store = {
@@ -22,7 +29,7 @@
     pending: {},          // { id: status } 送信中の楽観的更新
     filter: store.get(LS.filter) || 'すべて',
     name: store.get(LS.name),
-    key: store.get(LS.key),
+    key: store.get(LS.key) || (BOARD_ID === DEFAULT_BOARD ? store.get('tb.key') : ''), // 旧バージョンの保存値を引き継ぐ
     listSeq: 0,           // 一覧取得の通し番号
     acceptFrom: 0,        // この番号より前に始まった一覧取得の結果は捨てる
     lastRender: '',
@@ -65,11 +72,11 @@
 
   const api = DEMO ? demoApi() : {
     list() {
-      const u = CONF.GAS_URL + '?action=list&key=' + encodeURIComponent(state.key) + '&_=' + Date.now();
+      const u = GAS_URL + '?action=list&key=' + encodeURIComponent(state.key) + '&_=' + Date.now();
       return fetchJSON(u);
     },
     update(task, status) {
-      return fetchJSON(CONF.GAS_URL, {
+      return fetchJSON(GAS_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // CORS プリフライトを避ける
         body: JSON.stringify({ action: 'update', key: state.key, id: task.id, title: task.title, status: status, name: state.name }),
@@ -81,6 +88,7 @@
    * 読み込み・同期
    * ============================================================ */
   async function load(manual) {
+    if (!BOARD) return;
     if (state.loading && !manual) return;
     const seq = ++state.listSeq;
     state.loading = true;
@@ -353,5 +361,10 @@
     };
   }
 
+  if (!BOARD) {
+    document.getElementById('list').innerHTML = '<p class="empty">ボード「' + esc(BOARD_ID) + '」が見つかりません。<br>QRコードを読み直すか、職員に確認してください。</p>';
+    setSync('err', 'ボードが見つかりません');
+    return;
+  }
   load(true);
 })();

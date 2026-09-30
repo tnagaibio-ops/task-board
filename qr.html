@@ -17,6 +17,7 @@
     .lead { color: var(--muted); margin: 0 0 20px; font-size: 14px; }
     .form { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; display: grid; gap: 12px; }
     label { font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+    select { font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
     input { font-size: 16px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); width: 100%; }
     .row { display: flex; gap: 8px; flex-wrap: wrap; }
     button { min-height: 44px; padding: 0 18px; border-radius: 10px; border: 0; background: var(--brand); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
@@ -42,10 +43,13 @@
       <h1>QRコード作成（職員用）</h1>
       <p class="lead">アクセスコード入りの QR を作り、印刷して掲示・配布します。学生は読み取るだけでコード入力なしで開けます。</p>
       <div class="form">
+        <label>ボード
+          <select id="board"></select>
+        </label>
         <label>ボードのURL
           <input id="url" type="url">
         </label>
-        <label>アクセスコード（スプレッドシート「設定」シートの値）
+        <label>アクセスコード（そのボードのスプレッドシート「設定」シートの値）
           <input id="key" autocomplete="off">
         </label>
         <label>見出し（印刷用）
@@ -73,11 +77,28 @@
     </section>
   </div>
 
+  <script src="config.js"></script>
   <script src="lib/qrcode.js"></script>
   <script>
     (function () {
       const $ = (id) => document.getElementById(id);
-      $('url').value = location.href.replace(/qr\.html.*$/, '').replace(/[?#].*$/, '');
+      const CONF = window.TASKBOARD_CONFIG || {};
+      const BOARDS = CONF.BOARDS || { default: { label: '', GAS_URL: CONF.GAS_URL || '' } };
+      const DEF = CONF.DEFAULT_BOARD && BOARDS[CONF.DEFAULT_BOARD] ? CONF.DEFAULT_BOARD : Object.keys(BOARDS)[0];
+      const base0 = location.href.replace(/qr\.html.*$/, '').replace(/[?#].*$/, '');
+      $('board').innerHTML = Object.keys(BOARDS).map(function (id) {
+        const b = BOARDS[id];
+        return '<option value="' + id + '">' + (b.label || id) + (b.GAS_URL ? '' : '（未設定：デモ表示）') + '</option>';
+      }).join('');
+      function syncBoard() {
+        const id = $('board').value;
+        $('url').value = base0 + (id === DEF ? '' : '?b=' + encodeURIComponent(id));
+        const label = BOARDS[id].label;
+        $('head').value = (label ? label + ' ' : '') + '当日タスクボード';
+        $('sheet').hidden = true;
+      }
+      $('board').addEventListener('change', syncBoard);
+      syncBoard();
       function make() {
         const base = $('url').value.trim();
         const key = $('key').value.trim();
